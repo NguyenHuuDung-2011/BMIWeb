@@ -13,8 +13,8 @@ class HomePageViewTest(TestCase):
         StudentHealth.objects.create(
             name="Jane Doe",
             age=20,
-            gender="Nữ",      # Add gender
-            week=1,           # Add week
+            gender="Nữ",
+            week=1,
             height=175,
             weight=70
         )
