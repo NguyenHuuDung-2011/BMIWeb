@@ -37,8 +37,8 @@ class StudentHealthModelTests(TestCase):
         StudentHealth.objects.create(
             name="John Doe",
             age=20,
-            gender="Nam",     # Add gender
-            week=1,           # Add week
+            gender="Nam",
+            week=1,
             height=175,
             weight=70
         )
