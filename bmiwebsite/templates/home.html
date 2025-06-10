@@ -10,7 +10,7 @@
 <body>
 <div class="container">
     <h2>Trợ lý ảo sức khỏe học sinh</h2>
-    <form method="post" action="" id="bmiForm">
+    <form method="post" action="" id="bmiForm" autocomplete="on">
         {% csrf_token %}
         <label for="name">Tên:</label>
         <input type="text" id="name" placeholder="Điền tên học sinh">
@@ -37,38 +37,33 @@
     <button onclick="generateResult()">Phân tích & Tư vấn</button>
 
     <div id="output" class="output" style="display:none;"></div>
-
-    <h3>Lịch sử theo dõi BMI:</h3>
-    <table id="historyTable">
-        <thead>
-            <tr>
-                <th>Tuần</th>
-                <th>Tên</th>
-                <th>Chiều cao</th>
-                <th>Cân nặng</th>
-                <th>BMI</th>
-                <th>Phân loại</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
+    <div class="output">
+        <h3>Lịch sử theo dõi BMI:</h3>
+        <table id="historyTable">
+            <thead>
+                <tr>
+                    <th>Tuần</th>
+                    <th>Tên</th>
+                    <th>Chiều cao</th>
+                    <th>Cân nặng</th>
+                    <th>BMI</th>
+                    <th>Phân loại</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+    <div>
+        <label for="studentSelect">Chọn học sinh để xem biểu đồ:</label>
+        <select id="studentSelect">
+            <option value="">-- Chọn học sinh --</option>
+        </select>
+        <canvas id="bmiChart" width="400" height="200"></canvas>
+    </div>
 </div>
 
+{{ student_health_list|json_script:"student-health-data" }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="{% static 'js/scripts.js' %}"></script>
-{{ student_health_list|json_script:"student-health-data" }}
-<script>
-    const djangoData = JSON.parse(document.getElementById('student-health-data').textContent);
-    history = djangoData.map(student => ({
-        week: student.week,
-        name: student.name,
-        height: student.height,
-        weight: student.weight,
-        bmi: (student.height > 0 ? (student.weight / (student.height * student.height)).toFixed(1) : '0'),
-        category: getCategory(student.height, student.weight)
-    }));
-    updateTable();
-    updateChart();
-</script>
 </body>
 </html>
