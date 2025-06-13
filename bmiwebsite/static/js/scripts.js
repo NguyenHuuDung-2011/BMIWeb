@@ -106,38 +106,46 @@ function updateChart(data) {
     }
 }
 
-// Send data to Django
+// Send data to Django using jQuery AJAX
 function sendStudentData(data) {
-    fetch('/', {
-        method: 'POST',
+    return $.ajax({
+        url: '/',
+        type: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             'X-CSRFToken': getCookie('csrftoken')
         },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(updatedData => {
-        // Replace history with data from backend
-        history = updatedData.student_health_list.map(student => ({
-            week: student.week,
-            name: student.name,
-            height: student.height,
-            weight: student.weight,
-            bmi: (student.height > 0 ? (student.weight / (student.height * student.height)).toFixed(1) : '0'),
-            category: getCategory(student.height, student.weight)
-        }));
-        populateStudentSelect();
-        updateTable();
-        // Show chart for selected or first student
-        showChartForSelectedStudent();
+        data: JSON.stringify(data),
+        contentType: 'application/json',
+        success: function(updatedData) {
+            // Replace history with data from backend
+            history = updatedData.student_health_list.map(student => ({
+                week: student.week,
+                name: student.name,
+                height: student.height,
+                weight: student.weight,
+                bmi: (student.height > 0 ? (student.weight / (student.height * student.height)).toFixed(1) : '0'),
+                category: getCategory(student.height, student.weight)
+            }));
+            populateStudentSelect();
+            updateTable();
+            // Show chart for selected student
+            const studentSelect = document.getElementById('studentSelect');
+            if (studentSelect) {
+                studentSelect.value = data.name;
+                showChartForSelectedStudent();
+            }
+        },
+        error: function(xhr, status, error) {
+            alert('Có lỗi xảy ra khi lưu dữ liệu!');
+            console.error('Error:', error);
+        }
     });
 }
 
 // Generate result and send to backend
 function generateResult() {
     const name = standardizedName(document.getElementById("name").value);
-    const age = document.getElementById("age").value;
+    const age = parseInt(document.getElementById("age").value);
     const gender = document.getElementById("gender").value;
     const week = parseInt(document.getElementById("week").value);
     const heightStr = document.getElementById("height").value;
@@ -149,24 +157,48 @@ function generateResult() {
         alert("Vui lòng nhập đầy đủ thông tin.");
         return;
     }
-    if (age < 0 || week <= 0 || height <= 0 || weight <= 0) {
+    if (age <= 0 || week <= 0 || height <= 0 || weight <= 0) {
         alert("Vui lòng nhập thông tin hợp lệ.");
         return;
     }
 
     // Check for duplicate (same name and week)
     const isDuplicate = history.some(
-        entry => entry.name === name && String(entry.week) === String(week) && entry.gender === gender
+        entry => entry.name === name && entry.week === week
     );
     if (isDuplicate) {
-        document.getElementById("output").style.display = "block";
-        document.getElementById("output").innerHTML = `<span style="color:red;">Học sinh ${name} đã tồn tại trong danh sách!</span>`;
+        alert(`Học sinh ${name} đã tồn tại trong danh sách!`);
         return;
     }
 
-    const bmi = height > 0 ? (weight / (height * height)) : 0;
-    let category = getCategory(height, weight);
+    // Check for invalid week sequence
+    const studentHistory = history.filter(entry => entry.name === name);
+    const sortedWeeks = studentHistory.map(entry => entry.week).sort((a, b) => a - b);
+    
+    // Debug log
+    console.log('Week:', week, 'Type:', typeof week);
+    console.log('Sorted weeks:', sortedWeeks);
+    
+    if (sortedWeeks.length === 0) {
+        // No previous records: only allow week 1
+        if (week !== 1) {
+            alert("Học sinh mới phải bắt đầu từ tuần 1.");
+            return;
+        }
+    } else {
+        // Has previous records: only allow next consecutive week
+        const lastWeek = sortedWeeks[sortedWeeks.length - 1];
+        if (week !== lastWeek + 1) {
+            alert(`Tuần tiếp theo cho học sinh ${name} phải là tuần ${lastWeek + 1}.`);
+            return;
+        }
+    }
 
+    // Calculate BMI and category
+    const bmi = height > 0 ? (weight / (height * height)) : 0;
+    const category = getCategory(height, weight);
+
+    // Display result
     document.getElementById("output").style.display = "block";
     document.getElementById("output").innerHTML = `
         <strong>Kết quả tuần ${week}:</strong><br>
@@ -176,30 +208,48 @@ function generateResult() {
         <em>Tôi tên là ${name}, ${gender}, ${age} tuổi, cao ${height}m, nặng ${weight}kg, BMI = ${bmi.toFixed(1)}. Tôi thuộc nhóm '${category}'. Hãy tư vấn chế độ ăn uống và vận động phù hợp cho tôi.</em>
     `;
 
+    // Add to history
     history.push({
         week: week,
         name: name,
-        age: age, // Make sure to include age for future checks!
+        age: age,
+        gender: gender,
         height: height,
         weight: weight,
         bmi: bmi.toFixed(1),
         category: category
     });
 
+    // Sort history by week
     history.sort((a, b) => a.week - b.week);
-    updateTable();
 
-    sendStudentData({
-        name, age, gender, week, height, weight
-    });
+    // Update table and send data to backend
+    updateTable();
+    sendStudentData({ name, age, gender, week, height, weight })
+        .then(() => {
+            // Set dropdown to show current student
+            const studentSelect = document.getElementById('studentSelect');
+            if (studentSelect) {
+                studentSelect.value = name;
+                showChartForSelectedStudent();
+            }
+        });
 }
+
+document.addEventListener('click', generateResult)
 
 // Populate student select dropdown
 function populateStudentSelect() {
     const studentSelect = document.getElementById('studentSelect');
     if (!studentSelect) return;
-    // Remove all except the first option
+
+    // Store current selection
+    const currentSelection = studentSelect.value;
+
+    // Remove all options except the first (default) option
     studentSelect.options.length = 1;
+
+    // Populate the dropdown with unique student names
     const uniqueNames = [...new Set(history.map(item => item.name))];
     uniqueNames.forEach(name => {
         const option = document.createElement('option');
@@ -207,21 +257,25 @@ function populateStudentSelect() {
         option.textContent = name;
         studentSelect.appendChild(option);
     });
+
+    // Restore selection or keep current value
+    if (currentSelection) {
+        studentSelect.value = currentSelection;
+    }
 }
 
 // Show chart for selected or first student
 function showChartForSelectedStudent() {
     const studentSelect = document.getElementById('studentSelect');
     const selectedName = studentSelect.value;
-    let filtered = history;
-    if (selectedName) {
-        filtered = history.filter(item => item.name === selectedName);
-    } else if (studentSelect.options.length > 1) {
-        // If nothing selected, select the first student
-        studentSelect.value = studentSelect.options[1].value;
-        filtered = history.filter(item => item.name === studentSelect.value);
+    // If nothing is selected (default option), then hide the canvas and do nothing
+    if (!selectedName) {
+        document.getElementById('bmiChart').style.display = 'none';
+        return;
     }
+    const filtered = history.filter(item => item.name === selectedName);
     updateChart(filtered);
+    document.getElementById('bmiChart').style.display = 'block';
 }
 
 // On page load: get data from Django and initialize
@@ -236,14 +290,22 @@ document.addEventListener('DOMContentLoaded', function() {
         bmi: (student.height > 0 ? (student.weight / (student.height * student.height)).toFixed(1) : '0'),
         category: getCategory(student.height, student.weight)
     }));
-
+    
     populateStudentSelect();
     updateTable();
-    showChartForSelectedStudent();
 
-    // Event: change student
+    // Hide chart on load
+    document.getElementById('bmiChart').style.display = 'none';
+    
+    // Event: manual selection shows chart
     const studentSelect = document.getElementById('studentSelect');
-    if (studentSelect) {
-        studentSelect.addEventListener('change', showChartForSelectedStudent);
-    }
+    const bmiChart = document.getElementById('bmiChart');
+    studentSelect.addEventListener('change', function() {
+        if (studentSelect.value) {
+            bmiChart.style.display = 'block';
+            updateChart(history.filter(item => item.name === studentSelect.value));
+        } else {
+            bmiChart.style.display = 'none';
+        }
+    });
 });
