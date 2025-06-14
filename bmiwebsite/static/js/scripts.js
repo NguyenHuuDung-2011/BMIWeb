@@ -236,8 +236,6 @@ function generateResult() {
         });
 }
 
-document.addEventListener('click', generateResult)
-
 // Populate student select dropdown
 function populateStudentSelect() {
     const studentSelect = document.getElementById('studentSelect');
@@ -308,4 +306,14 @@ document.addEventListener('DOMContentLoaded', function() {
             bmiChart.style.display = 'none';
         }
     });
+
+    const submitButton = document.getElementById('submitButton');
+    const bmiForm = document.getElementById('bmiForm');
+
+    if (submitButton && bmiForm) {
+        submitButton.addEventListener('click', function (e) {
+            e.preventDefault(); // Prevent default form submission
+            generateResult(); // Call the function to validate and process the form
+        });
+    }
 });
