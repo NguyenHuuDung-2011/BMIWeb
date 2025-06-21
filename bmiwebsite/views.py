@@ -1,8 +1,18 @@
+from django.utils.decorators import method_decorator
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView
 from django.shortcuts import redirect
 from django.http import JsonResponse
 from .models import StudentHealth
+import os
 import json
+from openai import OpenAI
+import logging
+from dotenv import load_dotenv
+
+load_dotenv()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 class HomeView(TemplateView):
     template_name = 'home.html'
@@ -36,3 +46,23 @@ class HomeView(TemplateView):
         # Get all data to send back to JS
         student_health_list = list(StudentHealth.objects.values())
         return JsonResponse({'student_health_list': student_health_list})
+
+@method_decorator(csrf_exempt, name='dispatch')
+class ChatGPTAdviceView(View):
+    def post(self, request, *args, **kwargs):
+        data = json.loads(request.body)
+        prompt = data.get('prompt')
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        if not prompt:
+            return JsonResponse({'error': 'No prompt provided'}, status=400)
+        try:
+            # Use a valid model name
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return JsonResponse({"answer": response.choices[0].message.content})
+        except Exception as e:
+            logging.exception("ChatGPT API error")
+            # Return error message for debugging
+            return JsonResponse({'error': str(e)}, status=500)

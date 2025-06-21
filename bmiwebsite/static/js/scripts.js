@@ -10,6 +10,50 @@ function standardizedName(name){
         .join(' ');
 }
 
+function validateInput(name, age, heightStr, weightStr, height, weight, week){
+    if (!name || !age || heightStr === "" || weightStr === "" || !week) {
+        alert("Vui lòng nhập đầy đủ thông tin.");
+        return false;
+    }
+    if (age <= 0 || week <= 0 || height <= 0 || weight <= 0) {
+        alert("Vui lòng nhập thông tin hợp lệ.");
+        return false;
+    }
+
+    // Check for duplicate (same name and week)
+    const isDuplicate = history.some(
+        entry => entry.name === name && entry.week === week
+    );
+    if (isDuplicate) {
+        alert(`Học sinh ${name} đã tồn tại trong danh sách!`);
+        return false;
+    }
+
+    // Check for invalid week sequence
+    const studentHistory = history.filter(entry => entry.name === name);
+    const sortedWeeks = studentHistory.map(entry => entry.week).sort((a, b) => a - b);
+    
+    // Debug log
+    console.log('Week:', week, 'Type:', typeof week);
+    console.log('Sorted weeks:', sortedWeeks);
+    
+    if (sortedWeeks.length === 0) {
+        // No previous records: only allow week 1
+        if (week !== 1) {
+            alert("Học sinh mới phải bắt đầu từ tuần 1.");
+            return false;
+        }
+    } else {
+        // Has previous records: only allow next consecutive week
+        const lastWeek = sortedWeeks[sortedWeeks.length - 1];
+        if (week !== lastWeek + 1) {
+            alert(`Tuần tiếp theo cho học sinh ${name} phải là tuần ${lastWeek + 1}.`);
+            return false;
+        }
+    }
+    return true;
+}
+
 // Helper: Get CSRF token
 function getCookie(name) {
     let cookieValue = null;
@@ -152,48 +196,7 @@ function generateResult() {
     const weightStr = document.getElementById("weight").value;
     const height = parseFloat(heightStr);
     const weight = parseFloat(weightStr);
-
-    if (!name || !age || heightStr === "" || weightStr === "" || !week) {
-        alert("Vui lòng nhập đầy đủ thông tin.");
-        return;
-    }
-    if (age <= 0 || week <= 0 || height <= 0 || weight <= 0) {
-        alert("Vui lòng nhập thông tin hợp lệ.");
-        return;
-    }
-
-    // Check for duplicate (same name and week)
-    const isDuplicate = history.some(
-        entry => entry.name === name && entry.week === week
-    );
-    if (isDuplicate) {
-        alert(`Học sinh ${name} đã tồn tại trong danh sách!`);
-        return;
-    }
-
-    // Check for invalid week sequence
-    const studentHistory = history.filter(entry => entry.name === name);
-    const sortedWeeks = studentHistory.map(entry => entry.week).sort((a, b) => a - b);
-    
-    // Debug log
-    console.log('Week:', week, 'Type:', typeof week);
-    console.log('Sorted weeks:', sortedWeeks);
-    
-    if (sortedWeeks.length === 0) {
-        // No previous records: only allow week 1
-        if (week !== 1) {
-            alert("Học sinh mới phải bắt đầu từ tuần 1.");
-            return;
-        }
-    } else {
-        // Has previous records: only allow next consecutive week
-        const lastWeek = sortedWeeks[sortedWeeks.length - 1];
-        if (week !== lastWeek + 1) {
-            alert(`Tuần tiếp theo cho học sinh ${name} phải là tuần ${lastWeek + 1}.`);
-            return;
-        }
-    }
-
+    if (!validateInput(name, age, heightStr, weightStr, height, weight, week)) return; // Validate input before proceeding
     // Calculate BMI and category
     const bmi = height > 0 ? (weight / (height * height)) : 0;
     const category = getCategory(height, weight);
@@ -203,9 +206,7 @@ function generateResult() {
     document.getElementById("output").innerHTML = `
         <strong>Kết quả tuần ${week}:</strong><br>
         - Chỉ số BMI: ${bmi.toFixed(1)}<br>
-        - Phân loại thể trạng: <strong>${category}</strong><br><br>
-        <strong>Prompt gợi ý để hỏi ChatGPT:</strong><br>
-        <em>Tôi tên là ${name}, ${gender}, ${age} tuổi, cao ${height}m, nặng ${weight}kg, BMI = ${bmi.toFixed(1)}. Tôi thuộc nhóm '${category}'. Hãy tư vấn chế độ ăn uống và vận động phù hợp cho tôi.</em>
+        - Phân loại thể trạng: <strong>${category}</strong>
     `;
 
     // Add to history
@@ -276,6 +277,29 @@ function showChartForSelectedStudent() {
     document.getElementById('bmiChart').style.display = 'block';
 }
 
+// Send prompt to ChatGPT and get advice
+function getAdviceFromChatGPT(prompt, callback) {
+    $.ajax({
+        url: '/api/chatgpt/',
+        type: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        data: JSON.stringify({ prompt: prompt }),
+        contentType: 'application/json',
+        success: function(response) {
+            callback(response.answer);
+        },
+        error: function(xhr) {
+            let errorMsg = 'Lỗi khi lấy tư vấn từ ChatGPT!';
+            if (xhr.responseJSON && xhr.responseJSON.error) {
+                errorMsg += '<br><small>' + xhr.responseJSON.error + '</small>';
+            }
+            callback(errorMsg);
+        }
+    });
+}
+
 // On page load: get data from Django and initialize
 document.addEventListener('DOMContentLoaded', function() {
     const djangoData = JSON.parse(document.getElementById('student-health-data').textContent);
@@ -316,4 +340,34 @@ document.addEventListener('DOMContentLoaded', function() {
             generateResult(); // Call the function to validate and process the form
         });
     }
+
+    document.getElementById('submitButton').addEventListener('click', function() {
+        const name = standardizedName(document.getElementById("name").value);
+        const age = document.getElementById("age").value;
+        const gender = document.getElementById("gender").value;
+        const height = document.getElementById("height").value;
+        const weight = document.getElementById("weight").value;
+        const week = document.getElementById("week").value;
+
+        if (!name || !age || !height || !weight || !week) {
+            alert("Vui lòng nhập đầy đủ thông tin.");
+            return;
+        }
+
+        const bmi = height > 0 ? (weight / (height * height)).toFixed(1) : '0';
+        const category = getCategory(parseFloat(height), parseFloat(weight));
+        const prompt = `Tôi tên là ${name}, ${gender}, ${age} tuổi, cao ${height}m, nặng ${weight}kg, BMI = ${bmi}. Tôi thuộc nhóm '${category}'. Hãy tư vấn chế độ ăn uống và vận động phù hợp cho tôi.`;
+
+        const chatGPTOutput = document.getElementById("chatGPTOutput");
+        chatGPTOutput.style.display = "block";
+        chatGPTOutput.innerHTML = "Đang lấy tư vấn từ ChatGPT...";
+
+        getAdviceFromChatGPT(prompt, function(answer) {
+            if (answer.startsWith("Lỗi:")) {
+                chatGPTOutput.innerHTML = `<strong style="color:red;">${answer}</strong>`;
+            } else {
+                chatGPTOutput.innerHTML = `<strong>Tư vấn từ ChatGPT:</strong><br>${marked.parse(answer)}`;
+            }
+        });
+    });
 });
