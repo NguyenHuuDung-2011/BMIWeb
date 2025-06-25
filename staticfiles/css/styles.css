@@ -1,0 +1,110 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 30px;
+    background-color: #eef9ff;
+}
+
+aside {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 600px!important;
+    height: 100%;
+    color: #07a;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+h2, h3 {
+    text-align: center;
+    color: #0077aa;
+}
+
+label {
+    margin-top: 10px;
+    display: block;
+    font-weight: bold;
+}
+
+input, select {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+button {
+    padding: 10px;
+    width: 100%;
+    background-color: #07a;
+    color: white;
+    font-size: 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+button:hover {
+    background-color: #c84f31;
+    transform: scale(1.03);
+}
+
+table {
+    width: 100%;
+    margin-top: 15px;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 8px;
+    border-bottom: 1px solid #ccc;
+    text-align: center;
+}
+
+canvas {
+    margin-top: 30px;
+}
+
+.output {
+    background-color: #e6f7ff;
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+.container {
+    max-width: 45%!important;
+    margin: 30px 0px 30px;
+    padding: 25px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+}
+
+#bmiChart {
+    display: none;
+}
+
+#chatGPTOutput h3 {
+    margin-top: 16px;
+    color: #0077aa;
+}
+
+#chatGPTOutput ol, #chatGPTOutput ul {
+    padding-left: 20px;
+    margin-bottom: 12px;
+}
+
+#chatGPTOutput li {
+    margin-bottom: 6px;
+}
+
+#giveAdviceButton {
+    width: 30px!important;
+    height: 30px!important;
+    padding: 0;
+}
